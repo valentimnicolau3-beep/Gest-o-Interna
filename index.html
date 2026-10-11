@@ -1,0 +1,101 @@
+<!DOCTYPE html><html lang="pt"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Mundo Gestão · Mundo de Soluções</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<style>
+:root{--n:#14213d;--g:#c9a227;--r:#b22222;--bg:#f2f0ea;--t:#1b2233;--m:#6a7185}
+*{box-sizing:border-box}body{margin:0;font:16px/1.4 Georgia,'Times New Roman',serif;background:var(--bg);color:var(--t)}
+button,input,select{font:inherit}
+header{background:var(--n);color:#fff;padding:12px 14px;display:flex;gap:10px;align-items:center;position:sticky;top:0;z-index:5}
+header b{font-size:18px;flex:1;letter-spacing:.3px}header small{color:var(--g)}
+header button{background:none;border:1px solid #fff5;color:#fff;border-radius:6px;padding:4px 10px}
+main{padding:14px 14px 90px;max-width:720px;margin:auto}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:#fff;border-top:2px solid var(--n)}
+nav button{flex:1;padding:13px 2px;border:0;background:none;color:var(--m)}nav .on{color:var(--n);font-weight:700;box-shadow:inset 0 3px var(--g)}
+.card{background:#fff;border-left:4px solid var(--g);padding:11px 13px;margin:8px 0}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px}.row small{display:block;color:var(--m)}
+.big{font-size:30px;font-weight:700;color:var(--n)}.red{color:var(--r)}.ok{color:#22703a}
+input,select{width:100%;padding:11px;margin:5px 0;border:1px solid #bbb;background:#fff;border-radius:4px}
+.btn{width:100%;padding:13px;background:var(--n);color:#fff;border:0;border-radius:4px;margin-top:8px;font-weight:700}
+.btn.g{background:var(--g);color:#1b1b1b}.q{display:flex;align-items:center;gap:10px}
+.q button{width:34px;height:34px;border:1px solid var(--n);background:#fff;border-radius:50%}
+h3{margin:18px 0 4px;color:var(--n)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+</style></head><body><div id="app"></div>
+<script>
+// ====== CONFIGURAÇÃO (cole aqui as chaves do Supabase; vazio = só neste aparelho) ======
+const SUPABASE_URL='https://kxoxfsgzoxrsngiuhdtt.supabase.co', SUPABASE_KEY='sb_publishable_k1NOn_z72ikTJ5uHklub0g_nqrEczW0';
+// ========================================================================================
+const W=['Gaveta','Cofre','Banco/POS','M-Pesa','E-Mola','mKesh'];
+let S;try{S=JSON.parse(localStorage.getItem('mg'))}catch(e){}
+S=S||{products:[],clients:[],moves:[],sales:[]};
+let sb=null,user=null,tab='home',cart=[],tm;
+const $=s=>document.querySelector(s),uid=()=>Math.random().toString(36).slice(2,9);
+const f=n=>'MT '+Number(n||0).toLocaleString('pt-PT',{minimumFractionDigits:2,maximumFractionDigits:2});
+const bal=w=>S.moves.filter(m=>m.w===w).reduce((a,m)=>a+m.a,0);
+const P=id=>S.products.find(p=>p.id==id);
+const opts=()=>W.map(w=>`<option>${w}</option>`).join('');
+const dt=d=>new Date(d).toLocaleString('pt-PT',{dateStyle:'short',timeStyle:'short'});
+function save(){try{localStorage.setItem('mg',JSON.stringify(S))}catch(e){}
+ if(sb&&user){clearTimeout(tm);tm=setTimeout(async()=>{const{error}=await sb.from('state').upsert({user_id:user.id,data:S,updated_at:new Date().toISOString()});const e=$('#st');if(e)e.textContent=error?'sem sincronização':'sincronizado'},500)}}
+function go(k){tab=k;render()}
+function render(){
+ if(sb&&!user){$('#app').innerHTML=`<header><b>Mundo Gestão</b></header><main><h3>Entrar</h3><input id=em type=email placeholder="Email"><input id=pw2 type=password placeholder="Senha"><button class=btn onclick="login(0)">Entrar</button><button class="btn g" onclick="login(1)">Criar conta</button></main>`;return}
+ const v={home,sell,cat,mov,cli}[tab]();
+ $('#app').innerHTML=`<header><b>Mundo Gestão</b><small id=st>${sb?'':'neste aparelho'}</small>${sb?'<button onclick=out()>Sair</button>':''}</header><main>${v}</main><nav>${[['home','Início'],['sell','Vender'],['cat','Catálogo'],['mov','Caixa'],['cli','Clientes']].map(([k,l])=>`<button class="${tab==k?'on':''}" onclick="go('${k}')">${l}</button>`).join('')}</nav>`}
+function home(){
+ const tot=W.reduce((a,w)=>a+bal(w),0),rec=S.clients.reduce((a,c)=>a+c.debt,0),
+ stock=S.products.filter(p=>p.type=='p').reduce((a,p)=>a+p.stock*p.cost,0),
+ hj=S.sales.filter(s=>new Date(s.d).toDateString()==new Date().toDateString()),
+ vh=hj.reduce((a,s)=>a+s.tot,0),lh=hj.reduce((a,s)=>a+s.items.reduce((b,i)=>b+(i.p-i.c)*i.q,0),0);
+ return `<div class=card><small>Dinheiro disponível</small><div class=big>${f(tot)}</div></div>
+ <div class=grid><div class=card><small>Vendas hoje</small><b>${f(vh)}</b></div><div class=card><small>Lucro estimado hoje</small><b class=ok>${f(lh)}</b></div>
+ <div class=card><small>A receber de clientes</small><b class=red>${f(rec)}</b></div><div class=card><small>Stock ao custo</small><b>${f(stock)}</b></div></div>
+ <h3>Carteiras</h3>${W.map(w=>`<div class="card row"><span>${w}</span><b>${f(bal(w))}</b></div>`).join('')}`}
+function sell(){
+ const tot=cart.reduce((a,c)=>a+c.q*P(c.id).price,0);
+ return `<input placeholder="Buscar produto ou serviço" oninput="flt(this.value)">`+
+ S.products.map(p=>`<div class="card row it" data-n="${p.name.toLowerCase()}" onclick="add('${p.id}')"><span>${p.name}<small>${p.type=='p'?'Stock: '+p.stock:'Serviço'}</small></span><b>${f(p.price)}</b></div>`).join('')+
+ (S.products.length?'':'<div class=card>Cadastre produtos e serviços no Catálogo.</div>')+
+ `<h3>Carrinho</h3>`+cart.map(c=>`<div class="card row"><span>${P(c.id).name}</span><span class=q><button onclick="qty('${c.id}',-1)">−</button>${c.q}<button onclick="qty('${c.id}',1)">+</button></span><b>${f(c.q*P(c.id).price)}</b></div>`).join('')+
+ `<div class="card row"><b>Total</b><b class=big>${f(tot)}</b></div>
+ <select id=pw>${opts()}</select><input id=pp type=number inputmode=decimal value="${tot}" placeholder="Valor pago agora">
+ <select id=pc><option value="">Cliente (só se ficar a dever)</option>${S.clients.map(c=>`<option value="${c.id}">${c.name}</option>`).join('')}</select>
+ <button class=btn onclick=pay()>Cobrar</button>`}
+function flt(v){document.querySelectorAll('.it').forEach(e=>e.style.display=e.dataset.n.includes(v.toLowerCase())?'':'none')}
+function add(id){const c=cart.find(x=>x.id==id);c?c.q++:cart.push({id,q:1});render()}
+function qty(id,d){const c=cart.find(x=>x.id==id);c.q+=d;if(c.q<1)cart=cart.filter(x=>x.id!=id);render()}
+function pay(){
+ if(!cart.length)return alert('O carrinho está vazio.');
+ const tot=cart.reduce((a,c)=>a+c.q*P(c.id).price,0),w=$('#pw').value,paid=Math.min(Math.max(+$('#pp').value||0,0),tot),cl=$('#pc').value;
+ if(paid<tot&&!cl)return alert('Escolha o cliente para a parte que fica a dever.');
+ for(const c of cart){const p=P(c.id);if(p.type=='p'&&p.stock<c.q)return alert('Stock insuficiente: '+p.name)}
+ const items=cart.map(c=>{const p=P(c.id);if(p.type=='p')p.stock-=c.q;return{n:p.name,q:c.q,p:p.price,c:p.cost}});
+ if(paid>0)S.moves.push({id:uid(),d:Date.now(),k:'venda',t:'Venda',w,a:paid});
+ if(paid<tot)S.clients.find(x=>x.id==cl).debt+=tot-paid;
+ S.sales.push({id:uid(),d:Date.now(),items,tot,paid,cl});cart=[];save();render();alert('Venda registada.')}
+function cat(){return `<h3>Novo item</h3><input id=qn placeholder="Nome"><select id=qt><option value=s>Serviço (sem stock)</option><option value=p>Produto (com stock)</option></select>
+ <div class=grid><input id=qc type=number inputmode=decimal placeholder="Custo"><input id=qr type=number inputmode=decimal placeholder="Preço de venda"></div>
+ <input id=qs type=number placeholder="Stock inicial (só produtos)"><button class=btn onclick=addP()>Guardar item</button>
+ <h3>Itens (${S.products.length})</h3>`+S.products.map(p=>`<div class="card row"><span>${p.name}<small>${p.type=='p'?'Stock '+p.stock+' · custo '+f(p.cost):'Serviço · custo '+f(p.cost)}</small></span><b>${f(p.price)}</b><button onclick="delP('${p.id}')">✕</button></div>`).join('')}
+function addP(){const n=$('#qn').value.trim();if(!n)return alert('Escreva o nome.');S.products.push({id:uid(),name:n,type:$('#qt').value,cost:+$('#qc').value||0,price:+$('#qr').value||0,stock:+$('#qs').value||0});save();render()}
+function delP(id){if(confirm('Apagar este item?')){S.products=S.products.filter(p=>p.id!=id);save();render()}}
+function mov(){return `<h3>Registar movimento</h3><select id=mt><option value=out>Saída (despesa)</option><option value=in>Entrada (aporte / ajuste)</option></select>
+ <input id=md placeholder="Descrição (ex.: renda, luz, compra de papel)"><input id=mv type=number inputmode=decimal placeholder="Valor (MT)"><select id=mw>${opts()}</select>
+ <button class=btn onclick=addM()>Guardar</button><h3>Últimos movimentos</h3>`+
+ S.moves.slice(-30).reverse().map(m=>`<div class="card row"><span>${m.t}<small>${m.w} · ${dt(m.d)}</small></span><b class="${m.a<0?'red':'ok'}">${f(m.a)}</b></div>`).join('')}
+function addM(){const v=+$('#mv').value;if(!v||v<=0)return alert('Indique o valor.');const o=$('#mt').value=='out',w=$('#mw').value;
+ if(o&&bal(w)<v&&!confirm('Saldo de '+w+' insuficiente. Registar mesmo assim?'))return;
+ S.moves.push({id:uid(),d:Date.now(),k:o?'despesa':'aporte',t:$('#md').value||(o?'Despesa':'Aporte'),w,a:o?-v:v});save();render()}
+function cli(){return `<h3>Novo cliente</h3><input id=cn placeholder="Nome"><input id=cp placeholder="Telefone" inputmode=tel><button class=btn onclick=addC()>Guardar cliente</button><h3>Clientes</h3>`+
+ [...S.clients].sort((a,b)=>b.debt-a.debt).map(c=>`<div class="card row"><span>${c.name}<small>${c.phone||''}</small></span><b class="${c.debt>0?'red':''}">${c.debt>0?'Deve '+f(c.debt):'Sem dívida'}</b>${c.debt>0?`<button onclick="rec('${c.id}')">Receber</button>`:''}</div>`).join('')}
+function addC(){const n=$('#cn').value.trim();if(!n)return alert('Escreva o nome.');S.clients.push({id:uid(),name:n,phone:$('#cp').value,debt:0});save();render()}
+function rec(id){const c=S.clients.find(x=>x.id==id),v=+prompt('Valor recebido de '+c.name+' (MT):',c.debt);if(!v||v<=0)return;
+ const i=+prompt('Carteira: '+W.map((w,i)=>(i+1)+'='+w).join('  '),1)-1;if(!W[i])return;
+ const x=Math.min(v,c.debt);c.debt-=x;S.moves.push({id:uid(),d:Date.now(),k:'recebimento',t:'Recebido de '+c.name,w:W[i],a:x});save();render()}
+async function onUser(u){user=u;const{data}=await sb.from('state').select('data').eq('user_id',u.id).maybeSingle();if(data&&data.data&&data.data.products)S=data.data;else save()}
+async function login(sign){const e=$('#em').value,p=$('#pw2').value,r=sign?await sb.auth.signUp({email:e,password:p}):await sb.auth.signInWithPassword({email:e,password:p});
+ if(r.error)return alert(r.error.message);if(r.data.session){await onUser(r.data.user);render()}else alert('Confirme o email e depois entre.')}
+async function out(){await sb.auth.signOut();user=null;render()}
+(async()=>{if(SUPABASE_URL&&window.supabase){sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);const{data}=await sb.auth.getSession();if(data.session)await onUser(data.session.user)}
+ render();document.addEventListener('visibilitychange',()=>{if(!document.hidden&&sb&&user)onUser(user).then(render)})})();
+</script></body></html>
